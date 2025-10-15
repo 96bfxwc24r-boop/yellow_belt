@@ -72,20 +72,34 @@ document.addEventListener("DOMContentLoaded", () => {
             if (typeof p === "string") {
               displayName = p;
             } else if (p && typeof p === "object") {
-              displayName = p.name || p.email || JSON.stringify(p);
+              displayName = p.name || p.email || "Unknown User";
             } else {
               displayName = String(p);
             }
 
-            // Derive initials: prefer name parts, fallback to local part of email
-            const local = displayName.split("@")[0];
-            const parts = local.split(/[\s._-]+/).filter(Boolean);
-            let initials = "";
-            if (parts.length === 1) {
-              initials = parts[0].slice(0, 2).toUpperCase();
-            } else {
-              initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            // Derive initials: handle both names and emails
+            let local = displayName;
+            if (displayName.includes("@")) {
+              local = displayName.split("@")[0];
             }
+            const parts = local.split(/[\s._-]+/).filter(Boolean);
+
+            // Robust initials logic:
+            // - if no parts, use first two chars of displayName
+            // - if one part, use first two chars of that part
+            // - if multiple parts, use first letter of first and last parts
+            let initials = "";
+            if (parts.length === 0) {
+              initials = (displayName.slice(0, 2) || "?").toUpperCase();
+            } else if (parts.length === 1) {
+              initials = (parts[0].slice(0, 2) || parts[0][0] || "?").toUpperCase();
+            } else {
+              const first = parts[0] && parts[0][0] ? parts[0][0] : "";
+              const lastPart = parts[parts.length - 1];
+              const last = lastPart && lastPart[0] ? lastPart[0] : "";
+              initials = (first + last).toUpperCase();
+            }
+
             avatar.textContent = initials;
 
             const nameSpan = document.createElement("span");
