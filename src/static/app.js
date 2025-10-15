@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (Array.isArray(details.participants) && details.participants.length > 0) {
           const ul = document.createElement("ul");
 
+
           details.participants.forEach((p) => {
             const li = document.createElement("li");
 
@@ -85,9 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const parts = local.split(/[\s._-]+/).filter(Boolean);
 
             // Robust initials logic:
-            // - if no parts, use first two chars of displayName
-            // - if one part, use first two chars of that part
-            // - if multiple parts, use first letter of first and last parts
             let initials = "";
             if (parts.length === 0) {
               initials = (displayName.slice(0, 2) || "?").toUpperCase();
@@ -106,8 +104,39 @@ document.addEventListener("DOMContentLoaded", () => {
             nameSpan.className = "participant-name";
             nameSpan.textContent = displayName;
 
+            // Delete icon
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "delete-participant";
+            deleteBtn.title = "Remove participant";
+            deleteBtn.innerHTML = "&#128465;"; // Trash can emoji
+            deleteBtn.style.background = "none";
+            deleteBtn.style.border = "none";
+            deleteBtn.style.cursor = "pointer";
+            deleteBtn.style.marginLeft = "4px";
+            deleteBtn.style.fontSize = "16px";
+            deleteBtn.style.color = "#c62828";
+
+            deleteBtn.addEventListener("click", async (e) => {
+              e.stopPropagation();
+              if (!confirm(`Remove ${displayName} from ${name}?`)) return;
+              try {
+                const resp = await fetch(`/activities/${encodeURIComponent(name)}/unregister?email=${encodeURIComponent(displayName)}`, {
+                  method: "DELETE",
+                });
+                const result = await resp.json();
+                if (resp.ok) {
+                  fetchActivities();
+                } else {
+                  alert(result.detail || "Failed to remove participant.");
+                }
+              } catch (err) {
+                alert("Error removing participant.");
+              }
+            });
+
             li.appendChild(avatar);
             li.appendChild(nameSpan);
+            li.appendChild(deleteBtn);
             ul.appendChild(li);
           });
 
@@ -141,12 +170,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const email = document.getElementById("email").value;
     const activity = document.getElementById("activity").value;
+    const submitBtn = signupForm.querySelector("button[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
       const response = await fetch(
         `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: { "Cache-Control": "no-cache" },
         }
       );
 
@@ -156,9 +188,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
-
-        // Refresh activities to show updated participants
-        fetchActivities();
+        // Always force update activities after signup
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -175,6 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 
